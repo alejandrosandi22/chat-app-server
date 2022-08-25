@@ -57,8 +57,6 @@ server.start().then(() => {
       `🚀 Server ready at http://localhost:${PORT}${server.graphqlPath}`
     );
 
-    console.log(
-      `🚀 Subscriptions ready at ws://localhost:${PORT}${'/subscriptions'}`
-    );
+    console.log(`🚀 Subscriptions ready at ws://localhost:${PORT}/graphql'`);
   });
 });
