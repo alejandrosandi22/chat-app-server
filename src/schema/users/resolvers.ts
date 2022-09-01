@@ -31,6 +31,17 @@ export const resolvers = {
         if (error instanceof Error) throw new UserInputError(error.message);
       }
     },
+    getAllUsers: async (
+      _: unknown,
+      { limit, offset }: { limit: number; offset: number }
+    ) => {
+      const users = await pool.query(
+        `SELECT * FROM users ORDER BY contacts DESC LIMIT ${limit} OFFSET ${
+          limit * offset
+        }`
+      );
+      return [...users.rows];
+    },
     getContacts: async (
       _: unknown,
       { userId }: { userId: number },
