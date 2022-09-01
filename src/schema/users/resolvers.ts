@@ -304,17 +304,17 @@ export const resolvers = {
       );
 
       const transporter = createTransport({
-        host: 'smtp.gmail.com',
-        port: 465,
+        host: process.env.NODEMAILER_SMTP,
+        port: process.env.NODEMAILER_PORT,
         secure: true,
         auth: {
-          user: 'alesf22@gmail.com',
-          pass: 'hxdegsvgwrrezadq',
+          user: process.env.NODEMAILER_EMAIL,
+          pass: process.env.NODEMAILER_PASS,
         },
       });
 
       const info = {
-        from: "'Forgot password' <alesf22@gmail.com>",
+        from: `'Forgot password' <${process.env.NODEMAILER_EMAIL}>`,
         to: email,
         subject: 'Forgot password',
         html: template(token),
