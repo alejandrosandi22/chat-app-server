@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { pool } from '../../database';
 import Cryptr from 'cryptr';
 import { MessageType, UserType } from '../../types';
@@ -19,16 +18,23 @@ export const resolvers = {
   },
   Query: {
     getMessages: async (
-      _: any,
-      { contactId, offset }: { contactId: number; offset: number },
-      context: any
+      _: unknown,
+      {
+        contactId,
+        offset,
+        limit,
+      }: { contactId: number; offset: number; limit: number },
+      { user }: { user: UserType }
     ) => {
-      const userId = context.user.id;
+      const userId = user.id;
+
       const messages = await pool.query(
-        `SELECT * FROM messages WHERE (sender = ${userId} AND receiver = ${contactId}) OR (sender = ${contactId} AND receiver = ${userId}) ORDER BY created_at DESC LIMIT 10 OFFSET ${offset}`
+        `SELECT * FROM messages WHERE (sender = ${userId} AND receiver = ${contactId}) OR (sender = ${contactId} AND receiver = ${userId}) ORDER BY created_at DESC LIMIT ${limit} OFFSET ${
+          offset * limit
+        }`
       );
 
-      const decryptMessages: MessageType[] = messages.rows
+      return messages.rows
         .reduce((acc, curr) => {
           acc.push({
             ...curr,
@@ -37,29 +43,9 @@ export const resolvers = {
           return acc;
         }, [])
         .reverse();
-
-      let date = '';
-
-      const getDate = (date: string) => {
-        const dateObj = new Date(date);
-        return `${dateObj.getDate()}/${dateObj.getMonth() + 1 < 10 ? 0 : ''}${
-          dateObj.getMonth() + 1
-        }/${dateObj.getFullYear()}`;
-      };
-
-      return decryptMessages.map((message) => {
-        if (date !== getDate(message.created_at)) {
-          date = getDate(message.created_at);
-          return {
-            date: message.created_at,
-            ...message,
-          };
-        }
-        return message;
-      });
     },
     getLastMessage: async (
-      _: any,
+      _: unknown,
       { contactId, userId }: { contactId: string; userId: string }
     ) => {
       try {
@@ -73,7 +59,11 @@ export const resolvers = {
     },
   },
   Mutation: {
-    sendMessage: async (_: any, args: any, { user }: { user: UserType }) => {
+    sendMessage: async (
+      _: unknown,
+      args: MessageType,
+      { user }: { user: UserType }
+    ) => {
       const id = user.id;
       const content = cryptr.encrypt(args.content);
       try {

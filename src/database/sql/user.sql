@@ -16,4 +16,4 @@ create table users(
   provider varchar(20) not null,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP not null,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP not null
-)
+);

@@ -8,6 +8,7 @@ declare global {
       PGHOST: string;
       PGDATABASE: string;
       ACCESS_TOKEN_SECRET: string;
+      RESET_TOKEN: string;
       GOOGLE_CALLBACK_URL: string;
       GOOGLE_CLIENT_SECRET: string;
       GOOGLE_CLIENT_ID: string;
@@ -34,6 +35,7 @@ type MessageType = {
 };
 
 type UserType = {
+  userId?: number;
   id: number;
   name: string;
   email: string;
