@@ -10,11 +10,11 @@ export const typeDefs = gql`
     created_at: Date
   }
 
-  type Value {
-    value: String!
+  type Token {
+    token: String!
   }
 
-  type RemoveValue {
+  type Response {
     value: Boolean!
     message: String!
   }
@@ -45,21 +45,22 @@ export const typeDefs = gql`
     updated_at: Date
   }
   type Query {
-    getUser(username: String!): User
+    getUser(username: String, id: Int): User
     getCurrentUser: User
     getContacts(userId: Int): [User]
     searchUsers(search: String): [User]
   }
 
   type Mutation {
-    signIn(email: String!, password: String!): Value
+    signIn(email: String!, password: String!): Token!
     signUp(
       name: String!
       email: String!
       username: String!
       password: String!
-    ): Value
+    ): Token!
     updateUser(
+      userId: Int
       id: ID
       name: String
       username: String
@@ -72,7 +73,8 @@ export const typeDefs = gql`
       contacts: [Int]
     ): User
     removeContact(id: Int!): User
-    changePassword(password: String!, id: ID!): User
+    changePassword(password: String!, id: ID!): Response
     deleteUser(email: String!): User
+    forgetPassword(email: String!): Response
   }
 `;

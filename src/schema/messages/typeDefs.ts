@@ -14,7 +14,7 @@ export const typeDefs = gql`
     created_at: Date
   }
   type Query {
-    getMessages(contactId: Int!, offset: Int!): [Message]
+    getMessages(contactId: Int!, offset: Int!, limit: Int!): [Message]
     getLastMessage(contactId: String!, userId: String!): Message
   }
 

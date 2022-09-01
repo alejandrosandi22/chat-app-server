@@ -19,14 +19,6 @@ const wsServer = new WebSocketServer({
   path: '/graphql',
 });
 
-wsServer.on('open', function open() {
-  console.log('open');
-});
-
-wsServer.on('message', function message(data) {
-  console.log('received: %s', data);
-});
-
 const serverCleanup = useServer({ schema }, wsServer);
 
 const server = new ApolloServer({

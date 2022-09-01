@@ -12,4 +12,4 @@ create table messages(
 	CONSTRAINT fk_receiver
 		FOREIGN KEY(receiver)
 			REFERENCES users(id)
-)
+);

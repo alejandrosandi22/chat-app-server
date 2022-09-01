@@ -14,6 +14,7 @@ export async function context({ req }: ContextType) {
       token,
       process.env.ACCESS_TOKEN_SECRET
     ) as JwtPayload;
+
     const currentUser = await pool.query(
       `SELECT * FROM users WHERE id = ${id}`
     );
@@ -21,9 +22,8 @@ export async function context({ req }: ContextType) {
     return {
       user: currentUser.rows[0],
     };
-  } else {
-    return {
-      user: null,
-    };
   }
+  return {
+    user: null,
+  };
 }

@@ -1,20 +1,30 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { pool } from '../../database';
 import bctypt from 'bcryptjs';
 import { UserInputError } from 'apollo-server-express';
 import Cryptr from 'cryptr';
 import jwt from 'jsonwebtoken';
 import 'dotenv/config';
+import { UserType } from '../../types';
+import { createTransport } from 'nodemailer';
+import { template } from '../../utils/template';
 
 const cryptr = new Cryptr(process.env.ACCESS_TOKEN_SECRET);
 
 export const resolvers = {
   Query: {
-    getUser: async (_root: any, { username }: { username: string }) => {
+    getUser: async (
+      _: unknown,
+      { username, id }: { username: string; id: number }
+    ) => {
       try {
+        if (username) {
+          const { rows } = await pool.query(
+            `SELECT * FROM users WHERE username = '${username}'`
+          );
+          return rows[0];
+        }
         const { rows } = await pool.query(
-          'SELECT * FROM users WHERE username = $1',
-          [username]
+          `SELECT * FROM users WHERE id = ${id}`
         );
         return rows[0];
       } catch (error) {
@@ -22,11 +32,11 @@ export const resolvers = {
       }
     },
     getContacts: async (
-      _root: any,
+      _: unknown,
       { userId }: { userId: number },
-      context: any
+      { user }: { user: UserType }
     ) => {
-      const id = userId ?? context.user.id;
+      const id = userId ?? user.id;
 
       try {
         const contacts = await pool.query(
@@ -66,19 +76,23 @@ export const resolvers = {
         if (error instanceof Error) throw new UserInputError(error.message);
       }
     },
-    getCurrentUser: async (_root: any, _args: any, context: any) => {
+    getCurrentUser: async (
+      _: unknown,
+      __: unknown,
+      { user }: { user: UserType }
+    ) => {
       try {
-        return context.user;
+        return user;
       } catch (error) {
         if (error instanceof Error) throw new UserInputError(error.message);
       }
     },
     searchUsers: async (
-      _: any,
+      _: unknown,
       { search }: { search: string },
-      context: any
+      { user }: { user: UserType }
     ) => {
-      const id = context.user.id;
+      const id = user.id;
 
       try {
         const users = await pool.query(
@@ -93,18 +107,18 @@ export const resolvers = {
   },
   Mutation: {
     signIn: async (
-      _root: any,
+      _: unknown,
       { email, password }: { email: string; password: string }
     ) => {
       const user = await pool.query(`SELECT * FROM users WHERE email = $1`, [
         email,
       ]);
       if (!user.rows[0]) {
-        throw new Error('User not found');
+        throw new UserInputError('Incorrect email or password');
       }
       const isMatch = await bctypt.compare(password, user.rows[0].password);
       if (!isMatch) {
-        throw new Error('Password is incorrect');
+        throw new UserInputError('Incorrect email or password');
       }
 
       const tokenData = {
@@ -116,22 +130,33 @@ export const resolvers = {
       });
 
       return {
-        value: token,
+        token,
       };
     },
-    signUp: async (_: any, args: any) => {
-      const user = await pool.query(`SELECT * FROM users WHERE email = $1`, [
-        args.email,
-      ]);
-      if (user.rows.length > 0) {
+    signUp: async (_: unknown, args: UserType) => {
+      const findUserByEmail = await pool.query(
+        `SELECT * FROM users WHERE email = $1`,
+        [args.email]
+      );
+
+      const findUserByUsername = await pool.query(
+        `SELECT * FROM users WHERE username = $1`,
+        [args.username]
+      );
+
+      if (findUserByEmail.rows.length > 0) {
         throw new UserInputError('User already exists');
       }
 
-      const hashedPassword = await bctypt.hash(args.password, 10);
+      if (findUserByUsername.rows.length > 0) {
+        throw new UserInputError('Username already exists');
+      }
+
+      const hashedPassword = await bctypt.hash(args.password as string, 10);
 
       const newUser = await pool.query(
         `INSERT INTO users (id, name, email, username, password, avatar, cover_photo, description, website, provider, show_profile_photo, contacts_request, contacts, created_at, updated_at)
-        VALUES (default, '${args.name}', '${args.email}', '${args.username}', '${hashedPassword}', '/static/images/user.png', null, null, null, 'email' ,default, default, '{}', default, default) RETURNING *`
+        VALUES (default, '${args.name}', '${args.email}', '${args.username}', '${hashedPassword}', '/static/images/user.png', null, default, default, 'email' ,default, default, '{}', default, default) RETURNING *`
       );
 
       const tokenData = {
@@ -143,43 +168,53 @@ export const resolvers = {
       });
 
       return {
-        value: token,
+        token,
       };
     },
-    updateUser: async (_: any, args: any, context: any) => {
+    updateUser: async (
+      _: unknown,
+      args: UserType,
+      { user: currentUser }: { user: UserType }
+    ) => {
       try {
-        const userId = context.user.id;
+        const userId = args.userId ?? currentUser.id;
 
         const getUser = await pool.query(
           `SELECT * FROM users WHERE id = ${userId}`
         );
         const user = getUser.rows[0];
-
         const contacts = user.contacts;
 
         const updatedUser = await pool.query(
           `UPDATE users SET name = $1, username = $2, avatar = $3, cover_photo = $4, website = $5, description = $6, show_profile_photo = $7, contacts_request = $8, contacts = ARRAY [${
             args.contacts ? contacts.concat(args.contacts) : user.contacts
-          }], updated_at = default WHERE id = ${userId} RETURNING *`,
+          }]::integer[], updated_at = default WHERE id = ${userId} RETURNING *`,
           [
             args.name ?? user.name,
             args.username ?? user.username,
             args.avatar ?? user.avatar,
-            args.cover_photo ?? user.cover_photo,
+            args.cover_photo !== undefined
+              ? args.cover_photo
+              : user.cover_photo,
             args.website ?? user.website,
             args.description ?? user.description,
             args.show_profile_photo ?? user.show_profile_photo,
             args.contacts_request ?? user.contacts_request,
           ]
         );
+
         return updatedUser.rows[0];
       } catch (error: unknown) {
         if (error instanceof Error) throw new UserInputError(error.message);
       }
     },
-    removeContact: async (_: any, args: any, context: any) => {
+    removeContact: async (
+      _: unknown,
+      args: UserType,
+      { user: currentUser }: { user: UserType }
+    ) => {
       try {
-        const userId = context.user.id;
+        const userId = currentUser.id;
         const contactId = args.id;
 
         const getUser = await pool.query(
@@ -215,19 +250,22 @@ export const resolvers = {
         if (error instanceof Error) throw new UserInputError(error.message);
       }
     },
-    changePassword: async (_: any, args: any) => {
+    changePassword: async (_: unknown, args: UserType) => {
       try {
-        const hashedPassword = await bctypt.hash(args.password, 10);
+        const hashedPassword = await bctypt.hash(args.password as string, 10);
         const updatedUser = await pool.query(
           `UPDATE users SET password = $1, updated_at = default WHERE id = $2 RETURNING *`,
           [hashedPassword, args.id]
         );
-        return updatedUser.rows[0];
+        return {
+          value: true,
+          message: `Successful reset password from @${updatedUser.rows[0].username}`,
+        };
       } catch (error: unknown) {
         if (error instanceof Error) throw new UserInputError(error.message);
       }
     },
-    deleteUser: async (_: any, args: any) => {
+    deleteUser: async (_: unknown, args: UserType) => {
       try {
         const user = await pool.query(`SELECT * FROM users WHERE email = $1`, [
           args.email,
@@ -243,6 +281,54 @@ export const resolvers = {
       } catch (error: unknown) {
         if (error instanceof Error) throw new UserInputError(error.message);
       }
+    },
+    forgetPassword: async (_: unknown, { email }: { email: string }) => {
+      const getUser = await pool.query(
+        `SELECT id, username, provider FROM users WHERE email = '${email}'`
+      );
+
+      const user = getUser.rows[0];
+
+      if (!user || (user && user.provider !== 'email')) {
+        throw new UserInputError(
+          'Check your email for a link reset your password'
+        );
+      }
+
+      const token = jwt.sign(
+        { id: user.id, username: user.username },
+        process.env.RESET_TOKEN,
+        {
+          expiresIn: '5m',
+        }
+      );
+
+      const transporter = createTransport({
+        host: process.env.NODEMAILER_SMTP,
+        port: process.env.NODEMAILER_PORT,
+        secure: true,
+        auth: {
+          user: process.env.NODEMAILER_EMAIL,
+          pass: process.env.NODEMAILER_PASS,
+        },
+      });
+
+      const info = {
+        from: `'Forgot password' <${process.env.NODEMAILER_EMAIL}>`,
+        to: email,
+        subject: 'Forgot password',
+        html: template(token),
+      };
+
+      transporter.sendMail(info, (error, info) => {
+        if (error) {
+          throw new UserInputError(error.message);
+        }
+        return {
+          value: true,
+          message: 'Successful',
+        };
+      });
     },
   },
 };
