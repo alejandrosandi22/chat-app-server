@@ -38,7 +38,6 @@ export const typeDefs = gql`
     description: String
     provider: String!
     show_profile_photo: String
-    show_email: String
     contacts_request: String
     lastMessage: LastMessage
     contacts: [Int]!
@@ -71,7 +70,7 @@ export const typeDefs = gql`
       website: String
       description: String
       show_profile_photo: String
-      show_email: String
+      contacts_request: String
       contacts: [Int]
     ): User
     removeContact(id: Int!): User

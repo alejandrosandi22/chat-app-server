@@ -7,8 +7,6 @@ declare global {
       PGUSER: string;
       PGHOST: string;
       PGDATABASE: string;
-      DB_URL: string;
-      DBPORT: number;
       ACCESS_TOKEN_SECRET: string;
       RESET_TOKEN: string;
       NODEMAILER_SMTP: string;
@@ -43,7 +41,7 @@ type UserType = {
   description?: string;
   website: string;
   show_profile_photo?: string;
-  show_email?: string;
+  contacts_request?: string;
   lastMessage?: MessageType;
   contacts: number[];
   created_at?: string;

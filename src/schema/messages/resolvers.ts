@@ -28,14 +28,14 @@ export const resolvers = {
     ) => {
       const userId = user.id;
 
-      const [rows]: any = await pool.query(
+      const messages = await pool.query(
         `SELECT * FROM messages WHERE (sender = ${userId} AND receiver = ${contactId}) OR (sender = ${contactId} AND receiver = ${userId}) ORDER BY created_at DESC LIMIT ${limit} OFFSET ${
           offset * limit
         }`
       );
 
-      return rows
-        .reduce((acc: any, curr: any) => {
+      return messages.rows
+        .reduce((acc, curr) => {
           acc.push({
             ...curr,
             content: cryptr.decrypt(curr.content),
@@ -49,10 +49,10 @@ export const resolvers = {
       { contactId, userId }: { contactId: string; userId: string }
     ) => {
       try {
-        const messages: any = await pool.query(
+        const messages = await pool.query(
           `SELECT * FROM messages WHERE (sender = ${userId} AND receiver = ${contactId}) OR (sender = ${contactId} AND receiver = ${userId}) ORDER BY created_at DESC LIMIT 1`
         );
-        return messages[0][0];
+        return messages.rows[0];
       } catch (error) {
         if (error instanceof Error) throw new Error(error.message);
       }
@@ -67,19 +67,15 @@ export const resolvers = {
       const id = user.id;
       const content = cryptr.encrypt(args.content);
       try {
-        const messageId: any = await pool.query(
+        const message = await pool.query(
           `INSERT INTO messages (id, sender, receiver, content, type, filename ,created_at)
-          VALUES (default, '${id}', '${args.receiver}', '${content}', '${args.type}' ,'${args.fileName}', default);`
-        );
-
-        const message: any = await pool.query(
-          `SELECT * FROM messages WHERE id = ${messageId[0].insertId}`
+          VALUES (default, '${id}', '${args.receiver}', '${content}', '${args.type}' ,'${args.fileName}', default) RETURNING *`
         );
 
         pubsub.publish(SUBSCRIPTIONS.MESSAGE_SENDED, {
-          messegeSended: message[0][0],
+          messegeSended: message.rows[0],
         });
-        return message[0][0];
+        return message.rows[0];
       } catch (error: unknown) {
         if (error instanceof Error) throw new Error(error.message);
       }

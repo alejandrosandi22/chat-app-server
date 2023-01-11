@@ -18,7 +18,7 @@ export const typeDefs = gql`
   }
 
   type Query {
-    receiveRequest(contactId: Int): [Request]!
+    receiveRequest: [Request]!
   }
 
   type Mutation {
